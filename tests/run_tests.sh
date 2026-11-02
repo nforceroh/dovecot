@@ -48,6 +48,16 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   exit 2
 fi
 
+# Derive the dovecot version from the image so version assertions track the base
+# image instead of hardcoding a version that drifts on every Alpine bump.
+DOVECOT_VERSION="$(docker run --rm --entrypoint sh "$IMAGE" -c 'dovecot --version' 2>/dev/null \
+  | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')"
+if [ -z "$DOVECOT_VERSION" ]; then
+  echo -e "${RED}ERROR:${NC} Could not determine dovecot version from '$IMAGE'."
+  exit 2
+fi
+DOVECOT_VERSION_RE="$(printf '%s' "$DOVECOT_VERSION" | sed 's/\./\\./g')"
+
 # ---------------------------------------------------------------------------
 section "Image Structure — required files"
 # ---------------------------------------------------------------------------
@@ -71,7 +81,7 @@ REQUIRED_FILES=(
   /etc/dovecot/conf.d/20-imap.conf
   /etc/dovecot/conf.d/20-lmtp.conf
   /etc/dovecot/conf.d/20-managesieve.conf
-  /etc/dovecot/conf.d/20-quota.conf
+  /etc/dovecot/conf.d/90-quota.conf
   /etc/dovecot/conf.d/90-sieve.conf
   /etc/dovecot/conf.d/auth-sql.conf.ext
   /etc/dovecot/conf.d/fts.conf
@@ -279,8 +289,8 @@ check_conf "doveadm password set"         "doveadm_password = test-doveadm-secre
 
 # dovecot.conf
 check_conf "login_greeting set"           "login_greeting=Ready"
-check_conf "dovecot_config_version set"   "dovecot_config_version=2\.4\.2"
-check_conf "dovecot_storage_version set"  "dovecot_storage_version=2\.4\.2"
+check_conf "dovecot_config_version set"   "dovecot_config_version=${DOVECOT_VERSION_RE}"
+check_conf "dovecot_storage_version set"  "dovecot_storage_version=${DOVECOT_VERSION_RE}"
 
 # 10-ssl.conf
 check_conf "ssl=required"                 "ssl = required"
