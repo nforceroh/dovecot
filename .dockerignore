@@ -16,3 +16,6 @@ __pycache__
 .venv
 venv
 *.log
+.vscode
+renovate.json
+tests
